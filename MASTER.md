@@ -1,5 +1,9 @@
 # MASTER — OpenPāṭala project index
 
+> SUPERSEDED 2026-11-10 (banner only): paths reference `openpatalanew/`;
+> checkout is `/root/openpatala`. Canonical live state: `OPENPATALA.md`.
+> Kept as reference; verify paths before running any command below.
+
 *2026-08-17 · Master index for navigating the project.*
 
 ---
