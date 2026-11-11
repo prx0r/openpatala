@@ -174,8 +174,11 @@ canonical database graph; keep those scopes distinct until the older projection
 is retired or reconciled.
 
 The MCP server exposes the same read-only path as `bibliography_facets` and
-`search_bibliography`. The MCP search tool requires at least one query or filter;
-it does not imply that the current catalogue is exhaustive for Tantra.
+`search_bibliography`. In the unified estate endpoint the direct tool names are
+`openpatala__bibliography_facets` and `openpatala__search_bibliography`; the
+nested trika-x federation uses the `openpatala_mcp__` prefix. The MCP search
+tool requires at least one query or filter; it does not imply that the current
+catalogue is exhaustive for Tantra.
 
 ## Client libraries
 

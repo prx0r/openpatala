@@ -45,13 +45,15 @@ read-only sequence is `bibliography_facets` → `search_bibliography` →
 in [`OPENPATALA.md`](OPENPATALA.md) is a dated 2026-11-07 snapshot; update the
 deployed endpoint and verify its tool list before describing these tools as live.
 
-In the Svatantrya federation, this child is named `openpatala_mcp`, so the
-federated names are `openpatala_mcp__bibliography_facets` and
-`openpatala_mcp__search_bibliography`. The gateway discovers child tools from
-`tools/list`; these names appear there after this child version is deployed.
-The current MCP endpoint uses a shared bearer credential. Keep that credential
-out of plugin manifests and repositories; use a user-scoped connection when the
-estate's OAuth/read-sheaf auth is available.
+In the estate's direct OpenPāṭala server, the names are
+`openpatala__bibliography_facets` and `openpatala__search_bibliography`. The
+nested trika-x federation exposes the same child as
+`openpatala_mcp__bibliography_facets` and
+`openpatala_mcp__search_bibliography`. Both are discovered from `tools/list`
+after this child version is deployed; use the direct names in the
+`openpatala` server tab. The current MCP endpoint uses a shared bearer
+credential. Keep that credential out of plugin manifests and repositories;
+use a user-scoped connection when the estate's OAuth/read-sheaf auth is available.
 
 ## Architecture
 
