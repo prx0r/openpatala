@@ -55,11 +55,57 @@ if server:
 
     @server.tool()
     def search(q: str, limit: int = 20) -> dict:
-        """Search for Sanskrit works by title."""
+        """Legacy title-only lookup; use search_bibliography for source-aware filters."""
         works = _db().list_works(10000)
         results = [{"id": w["id"], "title": w.get("preferred_title", ""), "type": "work"}
                    for w in works if q.lower() in (w.get("preferred_title") or "").lower()]
         return {"results": results[:limit], "total": len(results)}
+
+    @server.tool()
+    def bibliography_facets() -> dict:
+        """List recorded types, traditions, authors, ID schemes, and languages.
+
+        Facets reflect explicit database records only; titles are not auto-classified.
+        """
+        return {"status": "OK", **_db().bibliography_facets()}
+
+    @server.tool()
+    def search_bibliography(
+        q: str = "",
+        work_type: str = "",
+        tradition: str = "",
+        author: str = "",
+        identifier_scheme: str = "",
+        language: str = "",
+        has_edition: bool | None = None,
+        has_translation: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict:
+        """Search the canonical bibliography by title/ID, author, type, tradition, ID scheme, or translation.
+
+        Returns stable work IDs, title/alias assertions, edition/translation
+        counts, languages, source identifiers, and active tradition/authorship assertions.
+        Classification comes only from recorded work types and assertions; a
+        title keyword is not proof.
+        Use bibliography_facets first to discover the exact available filters,
+        then get_bundle for a full dossier.
+        """
+        try:
+            return {"status": "OK", **_db().search_bibliography(
+                q=q,
+                work_type=work_type,
+                tradition=tradition,
+                author=author,
+                identifier_scheme=identifier_scheme,
+                language=language,
+                has_edition=has_edition,
+                has_translation=has_translation,
+                limit=limit,
+                offset=offset,
+            )}
+        except ValueError as exc:
+            return {"status": "INVALID_FILTERS", "error": str(exc)}
 
     @server.tool()
     def get_frontier(limit: int = 20) -> dict:

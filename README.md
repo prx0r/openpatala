@@ -1,7 +1,7 @@
 # OpenPāṭala — The Scholarly State Machine for Premodern Texts
 
-**Repository:** https://github.com/prx0r/wiggly
-**Status:** Phase 0.6 + 1.0 complete (verified by machine evidence)
+**Repository:** https://github.com/prx0r/openpatala
+**Status:** current live-box state is recorded in [`OPENPATALA.md`](OPENPATALA.md); the counts below are an archived Phase 1.0 snapshot.
 **Branch:** master
 
 ---
@@ -16,8 +16,8 @@ OpenPāṭala is the identity, provenance, and epistemic memory layer across fra
 
 ```bash
 # Clone
-git clone https://github.com/prx0r/wiggly.git
-cd wiggly
+git clone https://github.com/prx0r/openpatala.git
+cd openpatala
 
 # Install
 pip install -r requirements.txt
@@ -29,10 +29,21 @@ python -m uvicorn patala.api:app --port 8801
 curl http://127.0.0.1:8801/health
 curl http://127.0.0.1:8801/v1/works?limit=5
 curl http://127.0.0.1:8801/v1/bundle/{id}
+curl http://127.0.0.1:8801/v1/bibliography/facets
+# Use only values reported by the facets response.
+curl "http://127.0.0.1:8801/v1/bibliography/search?work_type=TANTRA&limit=20"
 
 # Run conformance
 PYTHONPATH=. python3 patala/tests/conformance.py
 ```
+
+### MCP bibliography workflow
+
+The stdio server uses the same database search helpers as the REST API. The
+read-only sequence is `bibliography_facets` → `search_bibliography` →
+`get_bundle`. This source branch adds the first two tools. The live-box report
+in [`OPENPATALA.md`](OPENPATALA.md) is a dated 2026-11-07 snapshot; update the
+deployed endpoint and verify its tool list before describing these tools as live.
 
 ## Architecture
 
@@ -54,7 +65,11 @@ adjudication, history     planning, media
            PROOF OBLIGATIONS / CRUXES
 ```
 
-## What's built
+## What's built — archived Phase 1.0 snapshot
+
+The following counts describe the historical build snapshot; they are not the
+current production database totals. For the dated live-box state, see
+[`OPENPATALA.md`](OPENPATALA.md).
 
 - **1099 works** from GRETIL, Sanskritree, Archive.org, Crossref, PANDiT
 - **247 assertions** linked to canonical entities
@@ -65,7 +80,7 @@ adjudication, history     planning, media
 - **22 JSON schemas** (v2)
 - **34 Postgres tables**
 
-## Verified
+## Verified — archived Phase 1.0 snapshot
 
 - 6 Proofs (A-F): all PASS
 - 26 Release Gates: all PASS
@@ -83,7 +98,7 @@ Machine-produced, not markdown claims:
 
 **Anti-cheat:** "Nothing written in README, commit messages or markdown counts as evidence."
 
-## Status
+## Status — archived Phase 1.0 snapshot
 
 ```
 works: 1099

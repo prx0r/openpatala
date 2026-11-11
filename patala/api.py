@@ -194,6 +194,47 @@ def search(q: str, limit: int = Query(20, le=100)):
     return _envelope(results[:limit])
 
 
+# --- Structured bibliography search ---
+
+@app.get("/v1/bibliography/facets")
+def bibliography_facets():
+    """List the exact recorded work types, traditions, and translation languages."""
+    return _envelope(store.bibliography_facets())
+
+
+@app.get("/v1/bibliography/search")
+def search_bibliography(
+    q: str | None = None,
+    work_type: str | None = None,
+    tradition: str | None = None,
+    author: str | None = None,
+    identifier_scheme: str | None = None,
+    language: str | None = None,
+    has_edition: bool | None = None,
+    has_translation: bool | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0, le=100000),
+):
+    """Filter the canonical bibliography graph and return source-aware records."""
+    try:
+        page = store.search_bibliography(
+            q=q,
+            work_type=work_type,
+            tradition=tradition,
+            author=author,
+            identifier_scheme=identifier_scheme,
+            language=language,
+            has_edition=has_edition,
+            has_translation=has_translation,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, _error("INVALID_FILTERS", str(exc))) from exc
+    results = page.pop("results")
+    return _envelope(results, meta=page)
+
+
 # --- Frontier (per pathway §22) ---
 
 @app.get("/v1/frontier")

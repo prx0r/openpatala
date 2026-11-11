@@ -5,12 +5,21 @@ Production-grade: writes to Postgres, reads from Postgres.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
+import unicodedata
 from typing import Any
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://patala:patala@127.0.0.1:5432/openpatala")
+
+
+def _response_sha256(payload: dict) -> str:
+    """Hash a stable UTF-8 JSON representation of a read response."""
+    canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False,
+                           separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def get_conn():
@@ -61,6 +70,344 @@ def list_works(limit: int = 100) -> list[dict]:
     cur.close()
     conn.close()
     return [dict(zip(cols, r)) for r in rows]
+
+
+def bibliography_facets() -> dict:
+    """Return recorded filter values for the canonical bibliography graph."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+    cur.execute(
+        "SELECT COALESCE(NULLIF(BTRIM(work_type), ''), 'UNKNOWN') AS value, "
+        "COUNT(*) AS work_count FROM works GROUP BY 1 "
+        "ORDER BY 1"
+    )
+    work_types = [dict(zip([d[0] for d in cur.description], row))
+                  for row in cur.fetchall()]
+
+    cur.execute(
+        "SELECT BTRIM(literal) AS value, COUNT(DISTINCT subject_id) AS work_count "
+        "FROM assertions WHERE lifecycle = 'ACTIVE' "
+        "AND predicate_uri ILIKE %s AND NULLIF(BTRIM(literal), '') IS NOT NULL "
+        "GROUP BY BTRIM(literal) ORDER BY 1",
+        ("%TRADITION%",),
+    )
+    traditions = [dict(zip([d[0] for d in cur.description], row))
+                  for row in cur.fetchall()]
+
+    cur.execute(
+        "SELECT COALESCE(NULLIF(BTRIM(p.preferred_name), ''), "
+        "NULLIF(BTRIM(a.literal), '')) AS value, "
+        "COUNT(DISTINCT a.subject_id) AS work_count "
+        "FROM assertions a LEFT JOIN people p ON p.id = a.object_id "
+        "WHERE a.lifecycle = 'ACTIVE' AND a.predicate_uri ILIKE %s "
+        "AND COALESCE(NULLIF(BTRIM(p.preferred_name), ''), "
+        "NULLIF(BTRIM(a.literal), '')) IS NOT NULL "
+        "GROUP BY 1 ORDER BY 1",
+        ("%AUTHOR%",),
+    )
+    authors = [dict(zip([d[0] for d in cur.description], row))
+               for row in cur.fetchall()]
+
+    cur.execute(
+        "SELECT LOWER(BTRIM(scheme)) AS value, "
+        "COUNT(DISTINCT entity_id) AS work_count FROM external_identifiers "
+        "WHERE NULLIF(BTRIM(scheme), '') IS NOT NULL "
+        "GROUP BY LOWER(BTRIM(scheme)) ORDER BY value"
+    )
+    identifier_schemes = [dict(zip([d[0] for d in cur.description], row))
+                          for row in cur.fetchall()]
+
+    cur.execute(
+        "SELECT LOWER(BTRIM(target_language)) AS value, "
+        "COUNT(DISTINCT work_id) AS work_count FROM translations "
+        "WHERE NULLIF(BTRIM(target_language), '') IS NOT NULL "
+        "GROUP BY LOWER(BTRIM(target_language)) ORDER BY value"
+    )
+    translation_languages = [dict(zip([d[0] for d in cur.description], row))
+                             for row in cur.fetchall()]
+
+    cur.execute("SELECT COALESCE(MAX(cursor), 0) FROM events")
+    state_cursor = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    response = {
+        "result_schema": "patala.bibliography-facets/1",
+        "catalogue": "OpenPāṭala canonical bibliography graph",
+        "state_cursor": state_cursor,
+        "classification_policy": (
+            "Only recorded work types and active tradition assertions are listed; "
+            "titles are not automatically classified."
+        ),
+        "facets": {
+            "work_types": work_types,
+            "traditions": traditions,
+            "authors": authors,
+            "identifier_schemes": identifier_schemes,
+            "translation_languages": translation_languages,
+        },
+    }
+    response["response_sha256"] = _response_sha256(response)
+    return response
+
+
+def search_bibliography(
+    q: str | None = None,
+    work_type: str | None = None,
+    tradition: str | None = None,
+    author: str | None = None,
+    identifier_scheme: str | None = None,
+    language: str | None = None,
+    has_edition: bool | None = None,
+    has_translation: bool | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict:
+    """Search canonical works and return source-aware bibliographic summaries.
+
+    Search normalizes the query to Unicode NFC, then uses case-insensitive
+    literal substring matching on preferred titles, title/alias assertions,
+    canonical IDs, and recorded external identifiers. Facets are exact recorded
+    values; they do not infer a tradition from title words.
+    """
+    query = unicodedata.normalize("NFC", (q or "").strip())
+    work_type = unicodedata.normalize("NFC", (work_type or "").strip())
+    tradition = unicodedata.normalize("NFC", (tradition or "").strip())
+    author = unicodedata.normalize("NFC", (author or "").strip())
+    identifier_scheme = (identifier_scheme or "").strip().lower()
+    language = (language or "").strip().lower()
+
+    if not any((query, work_type, tradition, author, identifier_scheme, language,
+                has_edition is not None, has_translation is not None)):
+        raise ValueError("Provide q or at least one bibliography filter.")
+    if not 1 <= limit <= 100:
+        raise ValueError("limit must be between 1 and 100.")
+    if not 0 <= offset <= 100000:
+        raise ValueError("offset must be between 0 and 100000.")
+
+    conditions: list[str] = []
+    params: list[Any] = []
+    if query:
+        conditions.append(
+            "(POSITION(LOWER(%s) IN LOWER(w.preferred_title)) > 0 "
+            "OR POSITION(LOWER(%s) IN LOWER(w.id)) > 0 "
+            "OR POSITION(LOWER(%s) IN LOWER(w.external_ids::text)) > 0 "
+            "OR EXISTS (SELECT 1 FROM external_identifiers x "
+            "WHERE x.entity_id = w.id AND "
+            "(POSITION(LOWER(%s) IN LOWER(x.scheme)) > 0 "
+            "OR POSITION(LOWER(%s) IN LOWER(x.value)) > 0)) "
+            "OR EXISTS (SELECT 1 FROM assertions ta WHERE ta.subject_id = w.id "
+            "AND ta.lifecycle = 'ACTIVE' "
+            "AND (ta.predicate_uri ILIKE '%TITLE%' OR ta.predicate_uri ILIKE '%ALIAS%') "
+            "AND POSITION(LOWER(%s) IN LOWER(COALESCE(ta.literal, ''))) > 0))"
+        )
+        params.extend([query] * 6)
+    if work_type:
+        conditions.append("LOWER(BTRIM(w.work_type)) = LOWER(BTRIM(%s))")
+        params.append(work_type)
+    if tradition:
+        conditions.append(
+            "EXISTS (SELECT 1 FROM assertions a WHERE a.subject_id = w.id "
+            "AND a.lifecycle = 'ACTIVE' AND a.predicate_uri ILIKE %s "
+            "AND POSITION(LOWER(%s) IN LOWER(COALESCE(a.literal, ''))) > 0)"
+        )
+        params.extend(["%TRADITION%", tradition])
+    if author:
+        conditions.append(
+            "EXISTS (SELECT 1 FROM assertions a "
+            "LEFT JOIN people p ON p.id = a.object_id "
+            "WHERE a.subject_id = w.id AND a.lifecycle = 'ACTIVE' "
+            "AND a.predicate_uri ILIKE %s AND ("
+            "POSITION(LOWER(%s) IN LOWER(COALESCE(a.literal, ''))) > 0 "
+            "OR POSITION(LOWER(%s) IN LOWER(COALESCE(p.preferred_name, ''))) > 0 "
+            "OR POSITION(LOWER(%s) IN LOWER(COALESCE(a.object_id, ''))) > 0))"
+        )
+        params.extend(["%AUTHOR%", author, author, author])
+    if identifier_scheme:
+        conditions.append(
+            "EXISTS (SELECT 1 FROM external_identifiers x "
+            "WHERE x.entity_id = w.id AND LOWER(BTRIM(x.scheme)) = LOWER(%s))"
+        )
+        params.append(identifier_scheme)
+    if language:
+        conditions.append(
+            "EXISTS (SELECT 1 FROM translations t WHERE t.work_id = w.id "
+            "AND LOWER(BTRIM(t.target_language)) = LOWER(%s))"
+        )
+        params.append(language)
+    if has_edition is not None:
+        conditions.append(
+            ("EXISTS" if has_edition else "NOT EXISTS")
+            + " (SELECT 1 FROM editions e WHERE e.work_id = w.id)"
+        )
+    if has_translation is not None:
+        conditions.append(
+            ("EXISTS" if has_translation else "NOT EXISTS")
+            + " (SELECT 1 FROM translations t WHERE t.work_id = w.id)"
+        )
+
+    where_sql = " WHERE " + " AND ".join(conditions)
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+    cur.execute("SELECT COUNT(*) FROM works w" + where_sql, params)
+    total = cur.fetchone()[0]
+
+    cur.execute(
+        "SELECT w.id, w.preferred_title, w.work_type, w.current_title_assertion_id, "
+        "w.external_ids, "
+        "(SELECT COUNT(*) FROM editions e WHERE e.work_id = w.id) AS edition_count, "
+        "(SELECT COUNT(*) FROM translations t WHERE t.work_id = w.id) AS translation_count, "
+        "(SELECT COUNT(*) FROM witnesses wi WHERE wi.work_id = w.id) AS witness_count, "
+        "(SELECT COUNT(*) FROM etexts et WHERE et.work_id = w.id) AS etext_count, "
+        "COALESCE((SELECT ARRAY_AGG(DISTINCT LOWER(t.target_language) "
+        "ORDER BY LOWER(t.target_language)) FROM translations t WHERE t.work_id = w.id), "
+        "ARRAY[]::text[]) AS translation_languages "
+        "FROM works w" + where_sql +
+        " ORDER BY CASE WHEN %s <> '' AND LOWER(w.preferred_title) = LOWER(%s) "
+        "THEN 0 WHEN %s <> '' AND POSITION(LOWER(%s) IN LOWER(w.preferred_title)) = 1 "
+        "THEN 1 ELSE 2 END, LOWER(w.preferred_title), w.id LIMIT %s OFFSET %s",
+        params + [query, query, query, query, limit, offset],
+    )
+    rows = cur.fetchall()
+    work_columns = [d[0] for d in cur.description]
+    works = [dict(zip(work_columns, row)) for row in rows]
+    ids = [work["id"] for work in works]
+
+    identifiers_by_work: dict[str, list[dict]] = {work_id: [] for work_id in ids}
+    traditions_by_work: dict[str, list[dict]] = {work_id: [] for work_id in ids}
+    titles_by_work: dict[str, list[dict]] = {work_id: [] for work_id in ids}
+    authors_by_work: dict[str, list[dict]] = {work_id: [] for work_id in ids}
+    if ids:
+        cur.execute(
+            "SELECT entity_id, scheme, value, source_observation_id, "
+            "relation_confidence FROM external_identifiers "
+            "WHERE entity_id = ANY(%s) ORDER BY entity_id, scheme, value",
+            (ids,),
+        )
+        columns = [d[0] for d in cur.description]
+        for row in cur.fetchall():
+            identifier = dict(zip(columns, row))
+            identifiers_by_work[identifier.pop("entity_id")].append(identifier)
+
+        cur.execute(
+            "SELECT id, subject_id, predicate_uri, literal, epistemic_mode, "
+            "evidence_use_ids, asserted_by, lifecycle, created_from_event, recorded_at "
+            "FROM assertions WHERE subject_id = ANY(%s) AND lifecycle = 'ACTIVE' "
+            "AND predicate_uri ILIKE %s ORDER BY subject_id, predicate_uri, id",
+            (ids, "%TRADITION%"),
+        )
+        columns = [d[0] for d in cur.description]
+        for row in cur.fetchall():
+            assertion = dict(zip(columns, row))
+            for key, value in assertion.items():
+                if hasattr(value, "isoformat"):
+                    assertion[key] = value.isoformat()
+            traditions_by_work[assertion.pop("subject_id")].append(assertion)
+
+        cur.execute(
+            "SELECT id, subject_id, predicate_uri, literal, epistemic_mode, "
+            "evidence_use_ids, asserted_by, lifecycle, created_from_event, recorded_at "
+            "FROM assertions WHERE subject_id = ANY(%s) AND lifecycle = 'ACTIVE' "
+            "AND (predicate_uri ILIKE '%TITLE%' OR predicate_uri ILIKE '%ALIAS%') "
+            "ORDER BY subject_id, predicate_uri, id",
+            (ids,),
+        )
+        columns = [d[0] for d in cur.description]
+        for row in cur.fetchall():
+            assertion = dict(zip(columns, row))
+            for key, value in assertion.items():
+                if hasattr(value, "isoformat"):
+                    assertion[key] = value.isoformat()
+            titles_by_work[assertion.pop("subject_id")].append(assertion)
+
+        cur.execute(
+            "SELECT a.id, a.subject_id, a.object_id, p.preferred_name AS person_name, "
+            "a.predicate_uri, a.literal, a.epistemic_mode, a.evidence_use_ids, "
+            "a.asserted_by, a.lifecycle, a.created_from_event, a.recorded_at "
+            "FROM assertions a LEFT JOIN people p ON p.id = a.object_id "
+            "WHERE a.subject_id = ANY(%s) AND a.lifecycle = 'ACTIVE' "
+            "AND a.predicate_uri ILIKE %s ORDER BY a.subject_id, a.predicate_uri, a.id",
+            (ids, "%AUTHOR%"),
+        )
+        columns = [d[0] for d in cur.description]
+        for row in cur.fetchall():
+            assertion = dict(zip(columns, row))
+            for key, value in assertion.items():
+                if hasattr(value, "isoformat"):
+                    assertion[key] = value.isoformat()
+            authors_by_work[assertion.pop("subject_id")].append(assertion)
+
+    cur.execute("SELECT COALESCE(MAX(cursor), 0) FROM events")
+    state_cursor = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+
+    results = []
+    for work in works:
+        result = {
+            "work_id": work["id"],
+            "dossier_path": f"/v1/bundle/{work['id']}",
+            "preferred_title": work["preferred_title"],
+            "work_type": work["work_type"],
+            "current_title_assertion_id": work["current_title_assertion_id"],
+            "embedded_external_ids": work["external_ids"],
+            "catalogue_identifiers": identifiers_by_work[work["id"]],
+            "title_assertions": titles_by_work[work["id"]],
+            "tradition_assertions": traditions_by_work[work["id"]],
+            "authorship_assertions": authors_by_work[work["id"]],
+            "edition_count": work["edition_count"],
+            "translation_count": work["translation_count"],
+            "translation_languages": work["translation_languages"],
+            "witness_count": work["witness_count"],
+            "etext_count": work["etext_count"],
+        }
+        if query:
+            matched_by = []
+            if query.casefold() in (work["preferred_title"] or "").casefold():
+                matched_by.append("preferred_title")
+            if query.casefold() in work["id"].casefold():
+                matched_by.append("canonical_work_id")
+            if query.casefold() in json.dumps(work["external_ids"], ensure_ascii=False).casefold():
+                matched_by.append("embedded_external_identifier")
+            if any(query.casefold() in (x["scheme"] or "").casefold()
+                   or query.casefold() in (x["value"] or "").casefold()
+                   for x in identifiers_by_work[work["id"]]):
+                matched_by.append("catalogue_identifier")
+            if any(query.casefold() in (x["literal"] or "").casefold()
+                   for x in titles_by_work[work["id"]]):
+                matched_by.append("title_assertion")
+            result["matched_by"] = matched_by
+        results.append(result)
+
+    response = {
+        "result_schema": "patala.bibliography-search/1",
+        "catalogue": "OpenPāṭala canonical bibliography graph",
+        "state_cursor": state_cursor,
+        "filters": {
+            "q": query or None,
+            "work_type": work_type or None,
+            "tradition": tradition or None,
+            "author": author or None,
+            "identifier_scheme": identifier_scheme or None,
+            "language": language or None,
+            "has_edition": has_edition,
+            "has_translation": has_translation,
+        },
+        "search_semantics": (
+            "q is NFC-normalized and matched as a case-insensitive literal "
+            "substring on preferred titles, active title/alias assertions, "
+            "canonical IDs, and external identifiers; work type and language "
+            "are exact; tradition and author filters use active recorded assertions."
+        ),
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "next_offset": offset + len(results) if offset + len(results) < total else None,
+        "results": results,
+    }
+    response["response_sha256"] = _response_sha256(response)
+    return response
 
 
 # --- Assertions ---
