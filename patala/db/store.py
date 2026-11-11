@@ -338,6 +338,111 @@ def search_bibliography(
                     assertion[key] = value.isoformat()
             authors_by_work[assertion.pop("subject_id")].append(assertion)
 
+    # Resolve evidence-use IDs into source observations without copying source
+    # content. A missing link remains visible as UNRESOLVED in the response.
+    assertion_groups = [titles_by_work, traditions_by_work, authors_by_work]
+    evidence_use_ids = sorted({str(use_id)
+        for group in assertion_groups
+        for assertions in group.values()
+        for assertion in assertions
+        for use_id in (assertion.get("evidence_use_ids") or [])})
+    evidence_by_id: dict[str, dict] = {}
+    if evidence_use_ids:
+        cur.execute(
+            "SELECT eu.id AS evidence_use_id, eu.assertion_id, "
+            "eu.evidence_entity_id, eu.role, eu.anchor_id, eu.interpretation_note, "
+            "ro.requested_uri, ro.resolved_uri, ro.observed_at, "
+            "ro.status AS observation_status, sp.id AS source_provider_id, "
+            "sp.slug AS source_provider, sp.name AS source_name, se.url AS endpoint_url, "
+            "rp.license_uri AS rights_license_uri, "
+            "rp.copyright_status AS rights_copyright_status, "
+            "rp.discovery AS rights_discovery, "
+            "rp.metadata_fetch AS rights_metadata_fetch, "
+            "rp.content_fetch AS rights_content_fetch, "
+            "rp.redistribution AS rights_redistribution "
+            "FROM evidence_uses eu "
+            "LEFT JOIN raw_observations ro ON ro.id = eu.evidence_entity_id "
+            "LEFT JOIN source_providers sp ON sp.id = ro.provider_id "
+            "LEFT JOIN source_endpoints se ON se.id = ro.endpoint_id "
+            "LEFT JOIN rights_policies rp ON rp.id = ro.rights_assessment_id "
+            "WHERE eu.id = ANY(%s) ORDER BY eu.assertion_id, eu.id",
+            (evidence_use_ids,),
+        )
+        columns = [d[0] for d in cur.description]
+        for row in cur.fetchall():
+            evidence = dict(zip(columns, row))
+            evidence_id = str(evidence.pop("evidence_use_id"))
+            for key, value in evidence.items():
+                if hasattr(value, "isoformat"):
+                    evidence[key] = value.isoformat()
+            evidence["source_url"] = (evidence.get("resolved_uri")
+                                       or evidence.get("requested_uri")
+                                       or evidence.get("endpoint_url"))
+            evidence["status"] = ("LINKED" if evidence.get("requested_uri")
+                                  or evidence.get("endpoint_url") else "SOURCE_UNRESOLVED")
+            evidence_by_id[evidence_id] = evidence
+
+    for group in assertion_groups:
+        for assertions in group.values():
+            for assertion in assertions:
+                assertion["evidence"] = [
+                    evidence_by_id.get(str(use_id), {
+                        "evidence_use_id": str(use_id),
+                        "status": "UNRESOLVED",
+                    })
+                    for use_id in (assertion.get("evidence_use_ids") or [])
+                ]
+
+    # External catalogue IDs may point to the same observation ledger. Resolve
+    # those URLs and rights notes too, while retaining IDs whose source row is
+    # absent so callers can distinguish a missing link from no identifier.
+    observation_ids = sorted({str(identifier.get("source_observation_id"))
+        for identifiers in identifiers_by_work.values()
+        for identifier in identifiers
+        if identifier.get("source_observation_id")})
+    observation_by_id: dict[str, dict] = {}
+    if observation_ids:
+        cur.execute(
+            "SELECT ro.id AS source_observation_id, ro.requested_uri, "
+            "ro.resolved_uri, ro.observed_at, ro.status AS observation_status, "
+            "sp.id AS source_provider_id, sp.slug AS source_provider, "
+            "sp.name AS source_name, se.url AS endpoint_url, "
+            "rp.license_uri AS rights_license_uri, "
+            "rp.copyright_status AS rights_copyright_status, "
+            "rp.discovery AS rights_discovery, "
+            "rp.metadata_fetch AS rights_metadata_fetch, "
+            "rp.content_fetch AS rights_content_fetch, "
+            "rp.redistribution AS rights_redistribution "
+            "FROM raw_observations ro "
+            "LEFT JOIN source_providers sp ON sp.id = ro.provider_id "
+            "LEFT JOIN source_endpoints se ON se.id = ro.endpoint_id "
+            "LEFT JOIN rights_policies rp ON rp.id = ro.rights_assessment_id "
+            "WHERE ro.id = ANY(%s) ORDER BY ro.id",
+            (observation_ids,),
+        )
+        columns = [d[0] for d in cur.description]
+        for row in cur.fetchall():
+            observation = dict(zip(columns, row))
+            observation_id = str(observation.pop("source_observation_id"))
+            for key, value in observation.items():
+                if hasattr(value, "isoformat"):
+                    observation[key] = value.isoformat()
+            observation["source_url"] = (observation.get("resolved_uri")
+                                          or observation.get("requested_uri")
+                                          or observation.get("endpoint_url"))
+            observation["status"] = ("LINKED" if observation.get("requested_uri")
+                                     or observation.get("endpoint_url") else "SOURCE_UNRESOLVED")
+            observation_by_id[observation_id] = observation
+    for identifiers in identifiers_by_work.values():
+        for identifier in identifiers:
+            observation_id = identifier.get("source_observation_id")
+            if observation_id:
+                identifier["source_observation"] = observation_by_id.get(
+                    str(observation_id), {
+                        "source_observation_id": str(observation_id),
+                        "status": "UNRESOLVED",
+                    })
+
     cur.execute("SELECT COALESCE(MAX(cursor), 0) FROM events")
     state_cursor = cur.fetchone()[0]
     cur.close()

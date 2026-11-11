@@ -155,7 +155,8 @@ curl "http://127.0.0.1:8801/v1/bibliography/search?work_type=TANTRA&tradition=Tr
 
 Search returns stable OpenPāṭala work IDs, title/alias assertions, recorded work
 type, external catalogue identifiers, active tradition assertions with their
-evidence references, edition/translation/witness/e-text counts, translation
+evidence-use records resolved to source URLs, observation dates, provider names,
+and recorded rights metadata, edition/translation/witness/e-text counts, translation
 languages, a dossier path, and a `state_cursor` for the database view. `q` is normalized to
 Unicode NFC, then matched as a case-insensitive literal substring over
 preferred titles, active title/alias assertions, canonical IDs, and external

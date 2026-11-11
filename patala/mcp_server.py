@@ -85,7 +85,8 @@ if server:
         """Search the canonical bibliography by title/ID, author, type, tradition, ID scheme, or translation.
 
         Returns stable work IDs, title/alias assertions, edition/translation
-        counts, languages, source identifiers, and active tradition/authorship assertions.
+        counts, languages, catalogue identifiers, source URLs, rights metadata,
+        and active tradition/authorship assertions with evidence links.
         Classification comes only from recorded work types and assertions; a
         title keyword is not proof.
         Use bibliography_facets first to discover the exact available filters,
