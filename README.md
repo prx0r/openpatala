@@ -45,6 +45,11 @@ read-only sequence is `bibliography_facets` → `search_bibliography` →
 in [`OPENPATALA.md`](OPENPATALA.md) is a dated 2026-11-07 snapshot; update the
 deployed endpoint and verify its tool list before describing these tools as live.
 
+The new facets expose the source-provider slugs that are linked to recorded
+observations. `search_bibliography` can filter by one of those slugs, and
+returns source URLs and rights metadata alongside matching identifiers and
+assertions.
+
 In the estate's direct OpenPāṭala server, the names are
 `openpatala__bibliography_facets` and `openpatala__search_bibliography`. The
 nested trika-x federation exposes the same child as

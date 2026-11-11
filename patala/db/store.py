@@ -119,6 +119,28 @@ def bibliography_facets() -> dict:
                           for row in cur.fetchall()]
 
     cur.execute(
+        "SELECT LOWER(BTRIM(provider_slug)) AS value, MAX(provider_name) AS label, "
+        "COUNT(DISTINCT work_id) AS work_count FROM ("
+        "SELECT sp.slug AS provider_slug, sp.name AS provider_name, w.id AS work_id "
+        "FROM external_identifiers x "
+        "JOIN works w ON w.id = x.entity_id "
+        "JOIN raw_observations ro ON ro.id = x.source_observation_id "
+        "JOIN source_providers sp ON sp.id = ro.provider_id "
+        "UNION "
+        "SELECT sp.slug AS provider_slug, sp.name AS provider_name, w.id AS work_id "
+        "FROM assertions a "
+        "JOIN works w ON w.id = a.subject_id "
+        "JOIN evidence_uses eu ON eu.assertion_id = a.id "
+        "JOIN raw_observations ro ON ro.id = eu.evidence_entity_id "
+        "JOIN source_providers sp ON sp.id = ro.provider_id "
+        "WHERE a.lifecycle = 'ACTIVE'"
+        ") linked_sources WHERE NULLIF(BTRIM(provider_slug), '') IS NOT NULL "
+        "GROUP BY LOWER(BTRIM(provider_slug)) ORDER BY 1"
+    )
+    source_providers = [dict(zip([d[0] for d in cur.description], row))
+                        for row in cur.fetchall()]
+
+    cur.execute(
         "SELECT LOWER(BTRIM(target_language)) AS value, "
         "COUNT(DISTINCT work_id) AS work_count FROM translations "
         "WHERE NULLIF(BTRIM(target_language), '') IS NOT NULL "
@@ -144,6 +166,7 @@ def bibliography_facets() -> dict:
             "traditions": traditions,
             "authors": authors,
             "identifier_schemes": identifier_schemes,
+            "source_providers": source_providers,
             "translation_languages": translation_languages,
         },
     }
@@ -157,6 +180,7 @@ def search_bibliography(
     tradition: str | None = None,
     author: str | None = None,
     identifier_scheme: str | None = None,
+    source_provider: str | None = None,
     language: str | None = None,
     has_edition: bool | None = None,
     has_translation: bool | None = None,
@@ -175,9 +199,11 @@ def search_bibliography(
     tradition = unicodedata.normalize("NFC", (tradition or "").strip())
     author = unicodedata.normalize("NFC", (author or "").strip())
     identifier_scheme = (identifier_scheme or "").strip().lower()
+    source_provider = (source_provider or "").strip().lower()
     language = (language or "").strip().lower()
 
-    if not any((query, work_type, tradition, author, identifier_scheme, language,
+    if not any((query, work_type, tradition, author, identifier_scheme,
+                source_provider, language,
                 has_edition is not None, has_translation is not None)):
         raise ValueError("Provide q or at least one bibliography filter.")
     if not 1 <= limit <= 100:
@@ -229,6 +255,20 @@ def search_bibliography(
             "WHERE x.entity_id = w.id AND LOWER(BTRIM(x.scheme)) = LOWER(%s))"
         )
         params.append(identifier_scheme)
+    if source_provider:
+        conditions.append(
+            "(EXISTS (SELECT 1 FROM external_identifiers x "
+            "JOIN raw_observations ro ON ro.id = x.source_observation_id "
+            "JOIN source_providers sp ON sp.id = ro.provider_id "
+            "WHERE x.entity_id = w.id AND LOWER(BTRIM(sp.slug)) = %s) "
+            "OR EXISTS (SELECT 1 FROM assertions a "
+            "JOIN evidence_uses eu ON eu.assertion_id = a.id "
+            "JOIN raw_observations ro ON ro.id = eu.evidence_entity_id "
+            "JOIN source_providers sp ON sp.id = ro.provider_id "
+            "WHERE a.subject_id = w.id AND a.lifecycle = 'ACTIVE' "
+            "AND LOWER(BTRIM(sp.slug)) = %s))"
+        )
+        params.extend([source_provider, source_provider])
     if language:
         conditions.append(
             "EXISTS (SELECT 1 FROM translations t WHERE t.work_id = w.id "
@@ -495,6 +535,7 @@ def search_bibliography(
             "tradition": tradition or None,
             "author": author or None,
             "identifier_scheme": identifier_scheme or None,
+            "source_provider": source_provider or None,
             "language": language or None,
             "has_edition": has_edition,
             "has_translation": has_translation,
@@ -503,7 +544,8 @@ def search_bibliography(
             "q is NFC-normalized and matched as a case-insensitive literal "
             "substring on preferred titles, active title/alias assertions, "
             "canonical IDs, and external identifiers; work type and language "
-            "are exact; tradition and author filters use active recorded assertions."
+            "are exact; tradition and author filters use active recorded assertions; "
+            "source_provider is an exact linked provider slug."
         ),
         "total": total,
         "limit": limit,

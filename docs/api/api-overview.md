@@ -36,8 +36,8 @@ public REST origin.
 - `GET /v1/resolve?q=...` — Resolve a work name (EXACT/AMBIGUOUS/NONE)
 - `GET /v1/search?q=...` — Search for works
 - `GET /v1/autocomplete?q=...` — Fast autocomplete
-- `GET /v1/bibliography/facets` — Recorded work types, active tradition/author assertions, identifier schemes, and translation languages
-- `GET /v1/bibliography/search` — Filter canonical records by title/ID, author, work type, tradition, identifier scheme, edition, or translation
+- `GET /v1/bibliography/facets` — Recorded work types, active tradition/author assertions, identifier schemes, linked source providers, and translation languages
+- `GET /v1/bibliography/search` — Filter canonical records by title/ID, author, work type, tradition, identifier scheme, provider, edition, or translation
 
 Use `/v1/bibliography/search` for agent and research workflows. `/v1/search`
 remains a lightweight, title-only compatibility endpoint.
@@ -144,7 +144,8 @@ curl "http://127.0.0.1:8801/v1/search?q=sanskrit&limit=5"
 
 Use the facets endpoint first to see the values actually recorded in the
 canonical database. The search endpoint accepts `q`, `work_type`, `tradition`,
-`author`, `identifier_scheme`, `language`, `has_edition`, and `has_translation`, with `limit` and `offset` for
+`author`, `identifier_scheme`, `source_provider`, `language`, `has_edition`, and
+`has_translation`, with `limit` and `offset` for
 pagination. Only use taxonomy values shown by the facets response; the example
 below returns records only if those labels are actually present. For example:
 
@@ -154,7 +155,7 @@ curl "http://127.0.0.1:8801/v1/bibliography/search?work_type=TANTRA&tradition=Tr
 ```
 
 Search returns stable OpenPāṭala work IDs, title/alias assertions, recorded work
-type, external catalogue identifiers, active tradition assertions with their
+type, external catalogue identifiers, linked source-provider slugs, active tradition assertions with their
 evidence-use records resolved to source URLs, observation dates, provider names,
 and recorded rights metadata, edition/translation/witness/e-text counts, translation
 languages, a dossier path, and a `state_cursor` for the database view. `q` is normalized to
@@ -162,8 +163,9 @@ Unicode NFC, then matched as a case-insensitive literal substring over
 preferred titles, active title/alias assertions, canonical IDs, and external
 identifiers. Work type and language filters are exact; tradition filters match
 recorded active assertion text, and author filters match active authorship
-assertions and linked person names. Nothing is classified as Tantra from its
-title alone. At least one search term or filter is required. `response_sha256` hashes
+assertions and linked person names. `source_provider` must match a provider slug
+listed in the facets and is based on linked source observations. Nothing is
+classified as Tantra from its title alone. At least one search term or filter is required. `response_sha256` hashes
 the query, result page, and cursor so a bibliography response can be cited and
 compared alongside a saved response. Use `/v1/bundle/{work_id}` for the full dossier and its
 provenance.

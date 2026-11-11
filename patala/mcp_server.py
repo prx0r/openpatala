@@ -63,7 +63,7 @@ if server:
 
     @server.tool()
     def bibliography_facets() -> dict:
-        """List recorded types, traditions, authors, ID schemes, and languages.
+        """List recorded types, traditions, authors, ID schemes, source providers, and languages.
 
         Facets reflect explicit database records only; titles are not auto-classified.
         """
@@ -76,13 +76,14 @@ if server:
         tradition: str = "",
         author: str = "",
         identifier_scheme: str = "",
+        source_provider: str = "",
         language: str = "",
         has_edition: bool | None = None,
         has_translation: bool | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> dict:
-        """Search the canonical bibliography by title/ID, author, type, tradition, ID scheme, or translation.
+        """Search by title/ID, author, type, tradition, catalogue ID scheme, source provider, or translation.
 
         Returns stable work IDs, title/alias assertions, edition/translation
         counts, languages, catalogue identifiers, source URLs, rights metadata,
@@ -99,6 +100,7 @@ if server:
                 tradition=tradition,
                 author=author,
                 identifier_scheme=identifier_scheme,
+                source_provider=source_provider,
                 language=language,
                 has_edition=has_edition,
                 has_translation=has_translation,
