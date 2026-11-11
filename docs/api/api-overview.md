@@ -175,12 +175,21 @@ projection. `/v1/bibliography/facets` and `/v1/bibliography/search` read the
 canonical database graph; keep those scopes distinct until the older projection
 is retired or reconciled.
 
-The MCP server exposes the same read-only path as `bibliography_facets` and
-`search_bibliography`. In the unified estate endpoint the direct tool names are
-`openpatala__bibliography_facets` and `openpatala__search_bibliography`; the
-nested trika-x federation uses the `openpatala_mcp__` prefix. The MCP search
-tool requires at least one query or filter; it does not imply that the current
-catalogue is exhaustive for Tantra.
+The MCP server exposes the same read-only path as `bibliography_facets`,
+`search_bibliography`, and `get_bibliography_dossier`. The dossier combines the
+full work bundle with its source-aware search record. The compatibility
+`search` tool now uses canonical bibliography search while preserving its
+`id`/`title`/`type` fields. MCP `resolve` reports `EXACT`, `AMBIGUOUS`,
+`CANDIDATES`, or `NONE`; candidates remain distinct from exact identity
+matches.
+
+In the unified estate endpoint the direct tool names are
+`openpatala__bibliography_facets`, `openpatala__search_bibliography`, and
+`openpatala__get_bibliography_dossier`; the nested trika-x federation uses the
+`openpatala_mcp__` prefix. These names are discovered from `tools/list` after
+the child version is deployed. The MCP search tool requires at least one query
+or filter; it does not imply that the current catalogue is exhaustive for
+Tantra.
 
 ## Client libraries
 

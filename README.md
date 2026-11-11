@@ -41,21 +41,27 @@ PYTHONPATH=. python3 patala/tests/conformance.py
 
 The stdio server uses the same database search helpers as the REST API. The
 read-only sequence is `bibliography_facets` → `search_bibliography` →
-`get_bundle`. This source branch adds the first two tools. The live-box report
-in [`OPENPATALA.md`](OPENPATALA.md) is a dated 2026-11-07 snapshot; update the
+`get_bibliography_dossier`. The compatibility tools `search` and `resolve` now
+use the same canonical bibliography records: search preserves its compact
+`id`/`title`/`type` fields while adding source links, and resolve distinguishes
+exact matches from substring candidates. The live-box report in
+[`OPENPATALA.md`](OPENPATALA.md) is a dated 2026-11-07 snapshot; update the
 deployed endpoint and verify its tool list before describing these tools as live.
 
 The new facets expose the source-provider slugs that are linked to recorded
 observations. `search_bibliography` can filter by one of those slugs, and
 returns source URLs and rights metadata alongside matching identifiers and
-assertions.
+assertions. `get_bibliography_dossier` combines the full REST dossier
+(editions, translations, witnesses, e-texts, passages, provenance, and
+completeness) with the source-aware search record for that work.
 
 In the estate's direct OpenPāṭala server, the names are
-`openpatala__bibliography_facets` and `openpatala__search_bibliography`. The
-nested trika-x federation exposes the same child as
-`openpatala_mcp__bibliography_facets` and
-`openpatala_mcp__search_bibliography`. Both are discovered from `tools/list`
-after this child version is deployed; use the direct names in the
+`openpatala__bibliography_facets`, `openpatala__search_bibliography`, and
+`openpatala__get_bibliography_dossier`. The nested trika-x federation exposes
+the same child as `openpatala_mcp__bibliography_facets`,
+`openpatala_mcp__search_bibliography`, and
+`openpatala_mcp__get_bibliography_dossier`. These are discovered from
+`tools/list` after this child version is deployed; use the direct names in the
 `openpatala` server tab. The current MCP endpoint uses a shared bearer
 credential. Keep that credential out of plugin manifests and repositories;
 use a user-scoped connection when the estate's OAuth/read-sheaf auth is available.
