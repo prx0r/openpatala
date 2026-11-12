@@ -9,6 +9,7 @@
 | Goal | Go to |
 |---|---|
 | Understand the architecture | `README.md` → §Architecture |
+| Check current bibliography/MCP rollout | `HANDSOVER-2026-11-12.md` |
 | See what was built | `BUILD-NOTES-2026-08-17.md` |
 | Check implementation status | `NEWBUILDCHECKLIST.md` |
 | Run the system | `recipes.md` → R1-R8 |

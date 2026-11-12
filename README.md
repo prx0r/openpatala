@@ -55,6 +55,9 @@ assertions. `get_bibliography_dossier` combines the full REST dossier
 (editions, translations, witnesses, e-texts, passages, provenance, and
 completeness) with the source-aware search record for that work.
 
+For the dated code, test, and live-MCP handover, see
+[`HANDSOVER-2026-11-12.md`](HANDSOVER-2026-11-12.md).
+
 In the estate's direct OpenPāṭala server, the names are
 `openpatala__bibliography_facets`, `openpatala__search_bibliography`, and
 `openpatala__get_bibliography_dossier`. The nested trika-x federation exposes
