@@ -20,8 +20,10 @@ ROOT = Path(__file__).resolve().parent
 PY = sys.executable
 
 # suite -> (argv, kind). kind: "gate" must pass; "known" may BLOCK with reason.
+# --status itself is genuinely read-only: it runs no writes against any
+# database (conformance's write suites live behind `check.py --write-tests`,
+# which uses a disposable database and refuses the live DB by default).
 SUITES = [
-    ("conformance", [PY, "patala/tests/conformance.py"], "gate"),
     ("api-import", [PY, "-c", "import patala.api; print('ok')"], "gate"),
     ("mcp-server", [PY, "-c", "from patala.mcp_server import server; "
                               "assert server is not None; print('ok')"], "gate"),
@@ -61,9 +63,26 @@ def run(argv):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--status", action="store_true", help="report only")
+    ap.add_argument("--status", action="store_true",
+                    help="report only (read-only: no database writes)")
+    ap.add_argument("--write-tests", action="store_true",
+                    help="run conformance write suites on a disposable DB")
+    ap.add_argument("--disposable", default="",
+                    help="disposable DB name stem for --write-tests "
+                         "(default: auto timestamp)")
+    ap.add_argument("--allow-live-writes", action="store_true",
+                    help="explicit opt-in to run write suites on the live DB")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
+    if a.write_tests:
+        argv = [PY, "patala/tests/conformance.py"]
+        if a.disposable:
+            argv += ["--disposable", a.disposable]
+        if a.allow_live_writes:
+            argv += ["--allow-live-writes"]
+        rc, out = run(argv)
+        print(out, end="" if out.endswith("\n") else "\n")
+        return rc
     results = []
     hard_fail = 0
     for name, argv, kind in SUITES:
@@ -91,6 +110,10 @@ def main() -> int:
         print("openpatala check: " +
               ("GREEN (gates pass; known blockers listed)" if not hard_fail
                else f"RED ({hard_fail} hard failure(s))"))
+        if not hard_fail and not a.write_tests:
+            print("write suites: not run (read-only status) — "
+                  "see `check.py --write-tests` (disposable DB, "
+                  "live DB refused by default)")
     return 0 if hard_fail == 0 else 1
 
 

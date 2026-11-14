@@ -15,8 +15,11 @@ and verify rejection. Not merely check the corresponding class/table exists."
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -27,6 +30,14 @@ from patala.hashing import uuid7, raw_byte_hash, canonical_jcs_hash, make_digest
 from patala.entities import Work, TextOccurrence, DocumentSegment
 from patala.resolver import Resolver
 from patala.db import store
+
+LIVE_DB_NAMES = {"openpatala"}
+
+
+def _db_name(dsn: str) -> str:
+    import re
+    m = re.search(r"/([^/?]+)(\?|$)", dsn)
+    return m.group(1) if m else ""
 
 
 def test_core_conformance() -> dict:
@@ -70,7 +81,10 @@ def test_core_conformance() -> dict:
 
 
 def test_replay_conformance() -> dict:
-    """REPLAY-CONFORMANCE: destroy projections, rebuild from events, digest identical."""
+    """REPLAY-CONFORMANCE: append to the (disposable, caller-provided) event
+    store, re-read every event, recompute each payload digest from stored
+    bytes, and compare against the recorded digest (tamper-evident replay).
+    This test never touches the live database — see main() guard."""
     results = []
 
     print("  Testing replay conformance...")
@@ -78,14 +92,36 @@ def test_replay_conformance() -> dict:
     from patala.hashing import canonical_jcs_hash
 
     es = CanonicalEventStore()
+    dbname = _db_name(os.environ.get(
+        "DATABASE_URL",
+        "postgresql://patala:patala@127.0.0.1:5432/openpatala"))
+    print(f"  Event store under test: database {dbname!r} "
+          f"(must be disposable, never live)")
 
     # Record events
+    written = []
     for i in range(5):
-        es.append("EntityCreated", [f"PTW_{i}"], {"title": f"Work {i}"})
+        written.append(es.append("EntityCreated", [f"PTW_{i}"],
+                                 {"title": f"Work {i}"}))
 
     # Read back and verify count
     events = es.get_events_since(0, limit=1000)
-    assert len(events) >= 5, f"Expected at least 5 events, got {len(events)}"
+    ours = [e for e in events
+            if e["event_id"] in {w["event_id"] for w in written}]
+    assert len(ours) == 5, f"Expected our 5 events, got {len(ours)}"
+
+    # Tamper-evidence: recompute every payload digest from stored bytes.
+    for e in ours:
+        payload = e["payload"]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        recomputed = canonical_jcs_hash(payload, algorithm="sha512")
+        recorded = e["payload_digest"]
+        if isinstance(recorded, str):
+            recorded = json.loads(recorded)
+        assert recomputed["value"] == recorded["value"], \
+            f"payload digest mismatch (tamper?) on {e['event_id']}"
+    results.append(("Event replay + digest re-verified", True))
 
     # Verify state digest is deterministic
     state1 = {"events": [{"id": e["event_id"], "type": e["event_type"]} for e in events]}
@@ -222,7 +258,15 @@ def run_all_conformance() -> dict:
 
     for suite_fn in suites:
         print()
-        result = suite_fn()
+        try:
+            result = suite_fn()
+        except Exception as e:  # noqa: BLE001 — record, never abort
+            name = getattr(suite_fn, "__name__", "unknown")
+            print(f"  {name}: FAIL ({e})")
+            all_results.append({"suite": name, "results": [(str(e), False)],
+                                "passed": False})
+            all_passed = False
+            continue
         all_results.append(result)
         status = "PASS" if result["passed"] else "FAIL"
         print(f"  {result['suite']}: {status}")
@@ -238,6 +282,82 @@ def run_all_conformance() -> dict:
     return {"results": all_results, "passed": all_passed}
 
 
+def _ensure_disposable_db(name: str) -> str:
+    """Create a clearly-identified disposable Postgres database from the
+    migration bundle, and return a DSN pointing at it. Never touches live."""
+    import psycopg2
+    base = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://patala:patala@127.0.0.1:5432/openpatala")
+    admin = re.sub(r"/[^/?]+(\?|$)", "/postgres\\1", base)
+    safe = re.sub(r"[^a-z0-9_]", "_", name.lower())[:40] or "check"
+    dbname = f"openpatala_check_{safe}"
+    conn = psycopg2.connect(admin)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute(f'DROP DATABASE IF EXISTS "{dbname}"')
+    cur.execute(f'CREATE DATABASE "{dbname}"')
+    cur.close()
+    conn.close()
+    dsn = re.sub(r"/[^/?]+(\?|$)", f"/{dbname}\\1", base)
+    mig = Path(__file__).resolve().parents[2] / "migrations"
+    mconn = psycopg2.connect(dsn)
+    mconn.autocommit = True
+    mcur = mconn.cursor()
+    for sql in sorted(mig.glob("*.sql")):
+        mcur.execute(sql.read_text(encoding="utf-8"))
+    mcur.close()
+    mconn.close()
+    return dsn, dbname
+
+
+def _drop_db(dsn: str, dbname: str) -> None:
+    import psycopg2
+    admin = re.sub(r"/[^/?]+(\?|$)", "/postgres\\1", dsn)
+    conn = psycopg2.connect(admin)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute(f'DROP DATABASE IF EXISTS "{dbname}"')
+    cur.close()
+    conn.close()
+
+
 if __name__ == "__main__":
-    result = run_all_conformance()
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--dsn", default="",
+                    help="DATABASE_URL for write suites (default: disposable DB)")
+    ap.add_argument("--disposable", default="",
+                    help="name stem for the disposable database "
+                         "(default: auto timestamp)")
+    ap.add_argument("--allow-live-writes", action="store_true",
+                    help="explicit opt-in to run write suites against the live DB")
+    a = ap.parse_args()
+    ambient = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://patala:patala@127.0.0.1:5432/openpatala")
+    dbname = None
+    if a.dsn:
+        # NOTE: patala.db.store binds DATABASE_URL at import time, so the
+        # env var alone cannot redirect it — patch the module binding too.
+        os.environ["DATABASE_URL"] = a.dsn
+        store.DATABASE_URL = a.dsn
+        if _db_name(a.dsn) in LIVE_DB_NAMES and not a.allow_live_writes:
+            print("conformance FAIL: write suites refuse the live "
+                  "database without --allow-live-writes.", file=sys.stderr)
+            sys.exit(2)
+    else:
+        # Default: never touch the ambient (possibly live) database.
+        stem = a.disposable or \
+            f"run_{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}"
+        dsn, dbname = _ensure_disposable_db(stem)
+        os.environ["DATABASE_URL"] = dsn
+        store.DATABASE_URL = dsn
+        print(f"conformance: disposable database {dbname} "
+              f"(torn down afterwards)")
+    try:
+        result = run_all_conformance()
+    finally:
+        if dbname:
+            _drop_db(store.DATABASE_URL, dbname)
+            print(f"conformance: disposable database {dbname} dropped")
     sys.exit(0 if result["passed"] else 1)

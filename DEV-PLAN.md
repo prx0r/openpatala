@@ -1,5 +1,11 @@
 # DEV-PLAN.md — Build Plan (Aligned with PATALAPATH + PATALAPATH2)
 
+> SUPERSEDED 2026-11-10 (banner only, no content changed): the 08-17 phase
+> map and counts (1099/247/2181) are stale. Canonical live state:
+> `OPENPATALA.md` (verified 2026-11-07; `check.py` GREEN + 2 recorded
+> BLOCKED; box DB 555/909). Phase 1.1–1.8 remain reference, not a work
+> queue. Do not build from the phase map below without re-verifying.
+
 *2026-08-17T17:45:00Z · Canonical reference: PATALAPATH.md + PATALAPATH2.md*
 
 ---
