@@ -1,3 +1,4 @@
+*Status: HISTORICAL. Dated peer review snapshot; frozen (2026-08-17).*
 
 
 I found it. prx0r/wiggly is a much better architectural direction than the earlier OpenPāṭala builds, but I would currently classify it as:

@@ -1,4 +1,5 @@
 # DEV-PLAN.md — Build Plan (Aligned with PATALAPATH + PATALAPATH2)
+*Status: SUPERSEDED. Superseded 2026-11-10 by OPENPATALA.md live state; kept as reference (2026-08-17).*
 
 > SUPERSEDED 2026-11-10 (banner only, no content changed): the 08-17 phase
 > map and counts (1099/247/2181) are stale. Canonical live state:

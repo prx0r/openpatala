@@ -1,3 +1,4 @@
+*Status: PROPOSED. Strategic pathway conversation; proposal.*
 Yes. The conversation drifted from **“build the OpenAlex of Sanskrit and premodern texts”** into spending most of our attention on whether an event table can survive database destruction.
 
 That durability work matters, but it is not the product.

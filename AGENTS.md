@@ -1,4 +1,5 @@
 # AGENTS.md — OpenPāṭala (wiggly)
+*Status: REFERENCE. Working rules for agents; process, not live numbers.*
 
 *2026-08-17 · Governing rules for agents working on this project.*
 

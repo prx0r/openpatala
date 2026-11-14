@@ -37,6 +37,8 @@ SUITES = [
                    "host=127.0.0.1',connect_timeout=3);cur=c.cursor();"
                    "cur.execute('SELECT count(*) FROM works');"
                    "n=cur.fetchone()[0];assert n>0;print('works',n)"], "gate"),
+    ("doc-check", [PY, "tools/doc_check.py"], "gate"),
+    ("mcp-acceptance", [PY, "tools/mcp_acceptance_run.py"], "gate"),
 ]
 
 KNOWN_BLOCKED = {

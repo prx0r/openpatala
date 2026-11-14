@@ -1,4 +1,5 @@
 # BUILD-NOTES-2026-08-17-FINAL.md — OpenPāṭala 0.5 Complete
+*Status: HISTORICAL. Timestamped final build log; frozen.*
 
 *2026-08-17T10:00:00Z · Final build: architecture + adapters + Factory integration + all specs implemented.*
 

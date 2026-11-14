@@ -1,3 +1,4 @@
+*Status: PROPOSED. Refined phase map; proposal.*
 No—the long-term phase map is mostly right, but the current DEV-PLAN is wrong in what it tells the next agent to do first.
 
 The latest push did two useful things: it implemented the beginnings of WorkCoverage//frontier and researched seven relevant projects, then changed the next milestone to “integrate STAM → CollateX → OpenPecha → MMM.”

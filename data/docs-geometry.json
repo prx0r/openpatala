@@ -1,0 +1,69 @@
+{
+ "format": "openpatala-docs-geometry/1",
+ "generated": "2026-11-14",
+ "note": "openpatala is the identity root: downstream repos cite it; it consumes none for identity. Edges carry why each is believed.",
+ "nodes": [
+  {
+   "id": "openpatala",
+   "kind": "repo"
+  },
+  {
+   "id": "translation-work",
+   "kind": "repo"
+  },
+  {
+   "id": "trika-x",
+   "kind": "repo"
+  },
+  {
+   "id": "svread",
+   "kind": "repo"
+  },
+  {
+   "id": "patala/mcp_server.py",
+   "kind": "code"
+  },
+  {
+   "id": "check.py",
+   "kind": "code"
+  },
+  {
+   "id": "tools/doc_check.py",
+   "kind": "code"
+  },
+  {
+   "id": "data/docs.json",
+   "kind": "data"
+  },
+  {
+   "id": "data/docs-geometry.json",
+   "kind": "data"
+  }
+ ],
+ "edges": [
+  {
+   "from": "translation-work",
+   "to": "openpatala",
+   "kind": "cites",
+   "note": "passages.jsonl locators == DB passages.citation_value (bridge_resolve --check)"
+  },
+  {
+   "from": "trika-x",
+   "to": "openpatala",
+   "kind": "consumes",
+   "note": "bridge_resolve.py maps chunk -> work/edition/etext rows; trace identity hop records them"
+  },
+  {
+   "from": "svread",
+   "to": "openpatala",
+   "kind": "cites",
+   "note": "scholar dossier/evidence cites openpatala work_id; resolve/get_bundle live"
+  },
+  {
+   "from": "openpatala",
+   "to": "translation-work",
+   "kind": "none",
+   "note": "identity root is upstream; does not read translation-work for identity"
+  }
+ ]
+}

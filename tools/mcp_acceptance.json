@@ -1,0 +1,157 @@
+{
+ "description": "openpatala MCP acceptance — an agent proves the identity surface with live calls. Each step calls one of the 8 MCP tools and asserts shape, the EXACT-vs-NONE distinction, the response hash, and fail-closed behavior. Skips loudly (never passes) without the box DB. Run: python3 tools/mcp_acceptance_run.py",
+ "format": "openpatala.mcp-acceptance/1",
+ "steps": [
+  {
+   "assert": [
+    {
+     "actual": "call.status",
+     "expect": "EXACT",
+     "op": "equals"
+    },
+    {
+     "actual": "call.entity.id",
+     "expect_exists": true,
+     "op": "exists"
+    },
+    {
+     "actual": "call.response_sha256",
+     "expect": "^[0-9a-f]{64}$",
+     "op": "regex"
+    }
+   ],
+   "id": "A0-resolve-exact",
+   "name": "resolve returns EXACT + entity + sha for a known work",
+   "request": {
+    "tool": "resolve",
+    "args": {
+     "q": "tantrasara"
+    }
+   }
+  },
+  {
+   "assert": [
+    {
+     "actual": "call.status",
+     "expect": "NONE",
+     "op": "equals"
+    }
+   ],
+   "id": "A1-resolve-none",
+   "name": "resolve returns NONE (never an invented entity) for garbage",
+   "request": {
+    "tool": "resolve",
+    "args": {
+     "q": "zzzznonexistentqqq"
+    }
+   }
+  },
+  {
+   "assert": [
+    {
+     "actual": "call.status",
+     "expect": "NONE",
+     "op": "equals"
+    }
+   ],
+   "id": "A2-resolve-empty",
+   "name": "resolve returns NONE for an empty query (never an invented entity)",
+   "request": {
+    "tool": "resolve",
+    "args": {
+     "q": ""
+    }
+   }
+  },
+  {
+   "assert": [
+    {
+     "actual": "call.status",
+     "expect": "OK",
+     "op": "equals"
+    },
+    {
+     "actual": "call.total",
+     "expect": 1,
+     "op": "gte"
+    }
+   ],
+   "id": "A3-search-bibliography",
+   "name": "search_bibliography returns OK with a total for a real query",
+   "request": {
+    "tool": "search_bibliography",
+    "args": {
+     "q": "tantra",
+     "limit": 3
+    }
+   }
+  },
+  {
+   "assert": [
+    {
+     "actual": "call.status",
+     "expect": "OK",
+     "op": "equals"
+    }
+   ],
+   "id": "A4-facets",
+   "name": "bibliography_facets returns recorded facets",
+   "request": {
+    "tool": "bibliography_facets",
+    "args": {}
+   }
+  },
+  {
+   "assert": [
+    {
+     "actual": "call.status",
+     "expect": "OK",
+     "op": "equals"
+    },
+    {
+     "actual": "call.dossier",
+     "expect_exists": true,
+     "op": "exists"
+    }
+   ],
+   "id": "A5-dossier",
+   "name": "get_bibliography_dossier returns a dossier for a known work_id",
+   "request": {
+    "tool": "get_bibliography_dossier",
+    "args": {
+     "work_id": "tantrasara-a08"
+    }
+   }
+  },
+  {
+   "assert": [
+    {
+     "actual": "call",
+     "expect_exists": true,
+     "op": "exists"
+    }
+   ],
+   "id": "A6-health",
+   "name": "get_health returns DB counts (works, passages, witnesses)",
+   "request": {
+    "tool": "get_health",
+    "args": {}
+   }
+  },
+  {
+   "assert": [
+    {
+     "actual": "call.status",
+     "expect": "INVALID_FILTERS",
+     "op": "equals"
+    }
+   ],
+   "id": "A7-search-fail-closed",
+   "name": "search_bibliography fails closed with no q and no filter",
+   "request": {
+    "tool": "search_bibliography",
+    "args": {}
+   }
+  }
+ ]
+}

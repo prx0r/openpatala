@@ -1,4 +1,5 @@
 # PEER-REVIEW-4.md — Honest Self-Assessment
+*Status: HISTORICAL. Honest self-assessment snapshot; frozen (2026-08-17).*
 
 *2026-08-17T18:45:00Z · Red team peer review of Phase 1.1-1.8*
 
