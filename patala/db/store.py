@@ -224,7 +224,7 @@ def search_bibliography(
             "OR POSITION(LOWER(%s) IN LOWER(x.value)) > 0)) "
             "OR EXISTS (SELECT 1 FROM assertions ta WHERE ta.subject_id = w.id "
             "AND ta.lifecycle = 'ACTIVE' "
-            "AND (ta.predicate_uri ILIKE '%TITLE%' OR ta.predicate_uri ILIKE '%ALIAS%') "
+            "AND (ta.predicate_uri ILIKE '%%TITLE%%' OR ta.predicate_uri ILIKE '%%ALIAS%%') "
             "AND POSITION(LOWER(%s) IN LOWER(COALESCE(ta.literal, ''))) > 0))"
         )
         params.extend([query] * 6)
@@ -349,7 +349,7 @@ def search_bibliography(
             "SELECT id, subject_id, predicate_uri, literal, epistemic_mode, "
             "evidence_use_ids, asserted_by, lifecycle, created_from_event, recorded_at "
             "FROM assertions WHERE subject_id = ANY(%s) AND lifecycle = 'ACTIVE' "
-            "AND (predicate_uri ILIKE '%TITLE%' OR predicate_uri ILIKE '%ALIAS%') "
+            "AND (predicate_uri ILIKE '%%TITLE%%' OR predicate_uri ILIKE '%%ALIAS%%') "
             "ORDER BY subject_id, predicate_uri, id",
             (ids,),
         )
