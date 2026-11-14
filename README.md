@@ -1,10 +1,13 @@
 # OpenPāṭala — The Scholarly State Machine for Premodern Texts
+*Status: CANONICAL. Project front door; live status line verified, archived Phase 1.0 block dated 2026-08-17.*
 
 **Repository:** https://github.com/prx0r/openpatala
 **Status:** current live-box state is recorded in [`OPENPATALA.md`](OPENPATALA.md); the counts below are an archived Phase 1.0 snapshot.
 **Branch:** master
 
 ---
+
+Live status (verified against the box DB, 2026-11-14): **1034 works** · 909 passages · 0 witnesses. The archived Phase 1.0 numbers below are dated 2026-08-17.
 
 ## What it is
 

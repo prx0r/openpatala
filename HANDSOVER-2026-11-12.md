@@ -1,4 +1,5 @@
 # OpenPāṭala bibliography/MCP handover
+*Status: HISTORICAL. Bibliography/MCP handover; frozen (2026-11-12).*
 
 *2026-11-12. Status note for consolidating the OpenPāṭala, Svatantrya, and
 Sanskrit Help MCP work. This records observed state; it is not a deployment

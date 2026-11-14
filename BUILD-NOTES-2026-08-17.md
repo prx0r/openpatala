@@ -1,4 +1,5 @@
 # BUILD-NOTES-2026-08-17.md — Timestamped Build Notes
+*Status: HISTORICAL. Timestamped build log; frozen.*
 
 *2026-08-17T19:15:00Z · Session pause point*
 

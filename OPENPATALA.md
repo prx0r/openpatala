@@ -1,4 +1,5 @@
 # OPENPATALA — what it is, what actually works, what does not
+*Status: CANONICAL. What openpatala is and what actually works; counts verified against the box DB (2026-11-14).*
 
 *2026-11-07. Written against the live box. Every claim below was run.*
 

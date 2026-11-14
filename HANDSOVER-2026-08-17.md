@@ -1,4 +1,5 @@
 # HANDSOVER-2026-08-17.md — Complete Session Handover
+*Status: HISTORICAL. Session handover snapshot; frozen.*
 
 *2026-08-17T19:00:00Z · Full handover for next agent.*
 

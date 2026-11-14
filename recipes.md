@@ -1,4 +1,5 @@
 # RECIPES — how to use OpenPāṭala
+*Status: REFERENCE. How to use the API/MCP; reference examples.*
 
 *2026-08-17 · Concrete how-tos for agents and humans. Each recipe is a copy-paste command.*
 

@@ -1,4 +1,5 @@
 # NEWBUILDCHECKLIST.md — OpenPāṭala Implementation Verification
+*Status: SUPERSEDED. Old implementation checklist; superseded (2026-08-17).*
 
 *Every spec requirement from newbuild files, mapped to actual code and tests. No placeholders.*
 

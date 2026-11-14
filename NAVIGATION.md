@@ -1,4 +1,5 @@
 # NAVIGATION — resolve anything in OpenPāṭala
+*Status: REFERENCE. How to resolve anything; reference.*
 
 *2026-08-17 · Quick reference for finding anything in the project.*
 

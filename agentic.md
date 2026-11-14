@@ -1,4 +1,5 @@
 # AGENTIC — how a Hermes agent drives OpenPāṭala
+*Status: REFERENCE. How a Hermes agent drives openpatala; workflow reference.*
 
 *2026-08-17 · The runbook for an agent operating this project.*
 

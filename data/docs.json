@@ -1,0 +1,140 @@
+{
+ "format": "openpatala-docs-registry/1",
+ "scope": [
+  "*.md at repo root (patala/**, docs/**, research/ out of scope)"
+ ],
+ "docs": {
+  "AGENTS.md": {
+   "status": "REFERENCE",
+   "note": "Working rules for agents; process, not live numbers."
+  },
+  "OPENPATALA.md": {
+   "status": "CANONICAL",
+   "note": "What openpatala is and what actually works; counts verified against the box DB (2026-11-14).",
+   "claims": [
+    {
+     "id": "works",
+     "pattern": "\\*\\*(\\d+) works\\*\\* · 909 passages",
+     "source": {
+      "psql": "SELECT count(*) FROM works",
+      "pattern": "(\\d+)"
+     }
+    },
+    {
+     "id": "passages",
+     "pattern": "works\\*\\* · (\\d+) passages",
+     "source": {
+      "psql": "SELECT count(*) FROM passages",
+      "pattern": "(\\d+)"
+     }
+    },
+    {
+     "id": "witnesses",
+     "pattern": "\\*\\*(\\d+) witnesses\\*\\*",
+     "source": {
+      "psql": "SELECT count(*) FROM witnesses",
+      "pattern": "(\\d+)"
+     }
+    }
+   ]
+  },
+  "README.md": {
+   "status": "CANONICAL",
+   "note": "Project front door; live status line verified, archived Phase 1.0 block dated 2026-08-17.",
+   "claims": [
+    {
+     "id": "works",
+     "pattern": "\\*\\*(\\d+) works\\*\\* · 909 passages",
+     "source": {
+      "psql": "SELECT count(*) FROM works",
+      "pattern": "(\\d+)"
+     }
+    }
+   ]
+  },
+  "MASTER.md": {
+   "status": "REFERENCE",
+   "note": "Project index / map; links, not numbers."
+  },
+  "NAVIGATION.md": {
+   "status": "REFERENCE",
+   "note": "How to resolve anything; reference."
+  },
+  "agentic.md": {
+   "status": "REFERENCE",
+   "note": "How a Hermes agent drives openpatala; workflow reference."
+  },
+  "recipes.md": {
+   "status": "REFERENCE",
+   "note": "How to use the API/MCP; reference examples."
+  },
+  "DEV-PLAN.md": {
+   "status": "SUPERSEDED",
+   "note": "Superseded 2026-11-10 by OPENPATALA.md live state; kept as reference (2026-08-17)."
+  },
+  "PATALAPATH.md": {
+   "status": "PROPOSED",
+   "note": "Long-term phase plan; proposal, not built state."
+  },
+  "PATALAPATH2.md": {
+   "status": "PROPOSED",
+   "note": "Refined phase map; proposal."
+  },
+  "PATHWAY.md": {
+   "status": "PROPOSED",
+   "note": "Strategic pathway conversation; proposal."
+  },
+  "P0-FIX-PLAN.md": {
+   "status": "SUPERSEDED",
+   "note": "P0 fixes from peer review; superseded by later work (2026-08-17)."
+  },
+  "PEER-REVIEW-2.md": {
+   "status": "HISTORICAL",
+   "note": "Dated peer review snapshot; frozen (2026-08-17)."
+  },
+  "PEER-REVIEW-3.md": {
+   "status": "HISTORICAL",
+   "note": "Dated peer review snapshot; frozen (2026-08-17)."
+  },
+  "PEER-REVIEW-4.md": {
+   "status": "HISTORICAL",
+   "note": "Honest self-assessment snapshot; frozen (2026-08-17)."
+  },
+  "BUILD-NOTES-2026-08-17.md": {
+   "status": "HISTORICAL",
+   "note": "Timestamped build log; frozen."
+  },
+  "BUILD-NOTES-2026-08-17-FINAL.md": {
+   "status": "HISTORICAL",
+   "note": "Timestamped final build log; frozen."
+  },
+  "HANDSOVER-2026-08-17.md": {
+   "status": "HISTORICAL",
+   "note": "Session handover snapshot; frozen."
+  },
+  "HANDSOVER-2026-11-12.md": {
+   "status": "HISTORICAL",
+   "note": "Bibliography/MCP handover; frozen (2026-11-12)."
+  },
+  "FINAL-TASK.md": {
+   "status": "HISTORICAL",
+   "note": "Verdict snapshot; frozen (2026-08-17)."
+  },
+  "NEWBUILDCHECKLIST.md": {
+   "status": "SUPERSEDED",
+   "note": "Old implementation checklist; superseded (2026-08-17)."
+  },
+  "RESEARCH-SUMMARY.md": {
+   "status": "HISTORICAL",
+   "note": "Cloned-repos analysis snapshot; frozen (2026-08-17)."
+  },
+  "OPENPATALA-FORMAL-SPEC.md": {
+   "status": "CANONICAL",
+   "note": "This spec (2026-11-14); self-describing."
+  },
+  "MCP-FOR-AGENTS.md": {
+   "status": "CANONICAL",
+   "note": "MCP contract for agents: 8 read tools, schemas, examples, failure modes (2026-11-14)."
+  }
+ }
+}

@@ -1,4 +1,5 @@
 # RESEARCH-SUMMARY.md — Cloned Repos Analysis
+*Status: HISTORICAL. Cloned-repos analysis snapshot; frozen (2026-08-17).*
 
 *2026-08-17 · 7 repos cloned, analyzed for OpenPāṭala integration*
 

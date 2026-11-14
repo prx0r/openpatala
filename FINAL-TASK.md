@@ -1,3 +1,4 @@
+*Status: HISTORICAL. Verdict snapshot; frozen (2026-08-17).*
 Verdict on the latest push
 
 The architecture is converging, but the latest commit substantially overclaims its verification status.

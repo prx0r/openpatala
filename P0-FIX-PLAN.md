@@ -1,4 +1,5 @@
 # P0 FIX PLAN — Based on Peer Review
+*Status: SUPERSEDED. P0 fixes from peer review; superseded by later work (2026-08-17).*
 
 *2026-08-17 · Fix all 27 P0 issues from peer review.*
 

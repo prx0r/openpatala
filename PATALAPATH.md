@@ -1,3 +1,4 @@
+*Status: PROPOSED. Long-term phase plan; proposal, not built state.*
 
 
 Yes. The conversation drifted from “build the OpenAlex of Sanskrit and premodern texts” into spending most of our attention on whether an event table can survive database destruction.
