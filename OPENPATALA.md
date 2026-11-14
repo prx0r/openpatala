@@ -24,14 +24,18 @@ Current state (verified 2026-11-07):
 | api-import | PASS | FastAPI app imports |
 | mcp-server | PASS | MCP server constructs (5 tools) |
 | evidence-bundle | PASS | machine evidence present |
-| db-seeded | PASS | 555 works live in Postgres |
+| db-seeded | PASS | 1034 works live in Postgres (555 enriched + 479 Muktabodha shells) |
 | witnesses | BLOCKED | 0 witnesses corpus-wide (structural) |
 
 ## What is real
 
 - **Box DB** (`postgresql://patala:patala@localhost:5432/openpatala`):
-  555 works · 909 passages · 102 editions · 87 etexts · 1559 assertions ·
+  **1034 works** · 909 passages · 581 editions · 566 etexts · 1559 assertions ·
   121 external ids · 121 translations · 20 people · **0 witnesses**.
+  Of the 1034, **479 are Muktabodha identity shells** (provider
+  `PT_PROVIDER_muktabodha`, loaded 2026-11-11, 0 assertions/translations,
+  **rights NULL → not publishable**) — see trika-x
+  `docs/log/DB-PROVENANCE-2026-11-14.md`. The 555 enriched works are unchanged.
 - **API** on `:8821` — `/health`, `/v1/works`, `/v1/works/{id}`, `/v1/bundle/{id}`.
   Start: `PYTHONPATH=. nohup python3 -m uvicorn patala.api:app --port 8821 --host 127.0.0.1 &`
   (Port note: 8801–8806 are squatted on this box by an unrelated old
