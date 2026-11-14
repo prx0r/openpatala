@@ -17,6 +17,7 @@ from typing import Any
 def create_dataset_card(title: str, description: str, license: str = "cc-by-sa-4.0",
                         authors: list[str] = None, tags: list[str] = None) -> str:
     """Create a Hugging Face dataset card (README.md for HF Hub)."""
+    tag_block = ("  - " + "\n  - ".join(tags)) if tags else ""
     card = f"""---
 language:
   - sa
@@ -27,7 +28,7 @@ tags:
   - digital-humanities
   - provenance
   - scholarly-database
-{"  - " + "\\n  - ".join(tags) if tags else ""}
+{tag_block}
 ---
 
 # {title}
