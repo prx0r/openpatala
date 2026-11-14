@@ -135,4 +135,5 @@ state_digest: 6477eadca1de1ab54eb5265e4d1ab929...
 
 ## Next
 
-See `DEV-PLAN.md` — Phase 1.2 (self-filling source graph).
+See [`OPENPATALA.md`](OPENPATALA.md) for the current live-box state. `DEV-PLAN.md`
+is retained for reference only and is bannered superseded (08-17 phase map).
