@@ -77,6 +77,38 @@ def _plain(value):
     return str(value)
 
 
+def _base_edition(dossier: dict, work_id: str = "") -> dict:
+    """Name the base edition (title/URI), not just its count.
+
+    A status that says '1 edition' without saying which text is being read is
+    not exact. Best available fields: edition id, title, and the edition_note
+    carried in external_ids (usually the source file + provenance).
+    """
+    editions = dossier.get("editions") or []
+    if not editions:
+        return {"state": "NONE",
+                "note": "no edition recorded; every claim about this work is "
+                        "floating"}
+    ed = editions[0]
+    ext = [x for x in (ed.get("external_ids") or []) if isinstance(x, dict)]
+    note = next((x.get("edition_note") or "" for x in ext
+                 if x.get("edition_note")), "")
+    title = ed.get("title") or ""
+    bare = str(work_id or dossier.get("work_id") or "")
+    named = bool(title) and title != bare
+    return {
+        "state": "NAMED" if named else "UNNAMED",
+        "edition_id": ed.get("id"),
+        "title": title,
+        "edition_note": note,
+        "rights_policy_id": ed.get("rights_policy_id"),
+        "n_editions": len(editions),
+        "note": ("" if named
+                 else "title is the bare work id: the edition has not been "
+                      "curatorially named; cite the edition_note instead"),
+    }
+
+
 def _layer_state(work_id: str) -> dict:
     idx = _load_json(_SVREAD_DATA / "layers-index.json", {})
     rows = idx.get("works") or []
@@ -271,6 +303,7 @@ if server:
                          "strings until a witness is verified"
                          if not witnesses else ""),
             },
+            "base_edition": _plain(_base_edition(dossier, work_id)),
             "counts": {
                 "editions": len(dossier.get("editions") or []),
                 "etexts": len(dossier.get("etexts") or []),

@@ -25,8 +25,19 @@ class StatusObjectShape(unittest.TestCase):
 
     def test_required_sections(self):
         for key in ("identity", "rights", "witnesses", "counts", "passages",
-                    "formal", "traces", "layers", "review_state", "provenance"):
+                    "formal", "traces", "layers", "review_state", "provenance",
+                    "base_edition"):
             self.assertIn(key, self.out)
+
+    def test_base_edition_is_named_or_loudly_bare(self):
+        be = self.out["base_edition"]
+        self.assertIn(be.get("state"), ("NAMED", "UNNAMED", "NONE"))
+        if be.get("state") == "NONE":
+            return
+        self.assertTrue(be.get("edition_note") or be.get("title"),
+                        "an edition without any name is not a status")
+        if be.get("state") == "UNNAMED":
+            self.assertIn("bare work id", be.get("note", ""))
 
     def test_counts_carry_denominators(self):
         formal = self.out["formal"]
