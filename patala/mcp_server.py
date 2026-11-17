@@ -28,6 +28,71 @@ def _db():
     return store
 
 
+_TRIKA = Path("/root/trika-x/formal-trika")
+_SVREAD_DATA = Path("/root/svread/data")
+
+
+def _load_json(path: Path, default):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return default
+
+
+def _evidence_locators() -> set:
+    ev = _load_json(_TRIKA / "EVIDENCE.json", {})
+    out = set()
+    for entry in (ev.get("entries") or {}).values():
+        for chunk in entry.get("chunks") or []:
+            if chunk.get("locator"):
+                out.add(chunk["locator"])
+    return out
+
+
+def _trace_rows(work_id: str) -> list:
+    idx = _load_json(_TRIKA / "data" / "traces" / "index.json", {})
+    rows = []
+    for entry in idx.get("entries") or []:
+        if entry.get("work") != work_id:
+            continue
+        rows.append({
+            "target": entry.get("target"),
+            "verdict": entry.get("verdict"),
+            "theorems": entry.get("theorems") or [],
+            "gaps": entry.get("gaps") or [],
+            "caveats": entry.get("caveats") or [],
+            "sha256": entry.get("sha256"),
+        })
+    return rows
+
+
+def _plain(value):
+    """Coerce DB row values (datetime etc.) to JSON-safe primitives."""
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+def _layer_state(work_id: str) -> dict:
+    idx = _load_json(_SVREAD_DATA / "layers-index.json", {})
+    rows = idx.get("works") or []
+    if isinstance(rows, dict):
+        row = rows.get(work_id)
+    else:
+        row = next((r for r in rows
+                    if work_id in (r.get("work"), r.get("site_bundle"))), None)
+    if row is None:
+        return {"state": "NOT_INDEXED",
+                "note": "work is absent from the layer index; layer presence "
+                        "is UNKNOWN here, not denied"}
+    return {"state": "INDEXED", "registry_status": row.get("registry_status"),
+            "gold": row.get("gold"), "songs": row.get("songs")}
+
+
 def _has_exact_identifier(value, needle: str) -> bool:
     """Match a legacy embedded identifier without treating surrounding JSON as a hit."""
     if isinstance(value, dict):
@@ -132,6 +197,120 @@ if server:
             "entity": work,
             "assertions": assertions,
             "external_ids": ext_ids,
+        }
+
+    @server.tool()
+    def status(work_id: str) -> dict:
+        """One-call status object for a work: identity, rights, witnesses,
+        passages, formal coverage, trace verdicts, review state, provenance.
+
+        This is NORTHSTAR turn 1. Absences are stated, never omitted:
+        witnesses 0 -> UNPINNED, rights null -> NULL, review -> UNREVIEWED.
+        Counts carry denominators. Nothing here is a translation or a reading.
+        """
+        try:
+            from fastapi import HTTPException
+            from patala.api import get_bundle as get_api_bundle
+
+            response = get_api_bundle(work_id)
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                return {"status": "NOT_FOUND", "work_id": work_id}
+            raise
+        dossier = response.get("data", response)
+        page = _db().search_bibliography(q=work_id, limit=1)
+        record = next((item for item in page["results"]
+                       if item.get("work_id") == work_id), None)
+        if record is None:
+            return {"status": "NOT_FOUND_IN_BIBLIOGRAPHY",
+                    "work_id": work_id,
+                    "note": "dossier exists but no bibliography row matched; "
+                            "do not invent counts"}
+
+        locators = [p.get("citation_value") for p in (dossier.get("passages") or [])
+                    if p.get("citation_scheme") == "chunk-locator"
+                    and p.get("citation_value")]
+        covered_all = _evidence_locators()
+        covered = [loc for loc in locators if loc in covered_all]
+        gaps = [loc for loc in locators if loc not in covered_all]
+        traces = _trace_rows(work_id)
+        verdicts: dict = {}
+        blocked: list = []
+        for row in traces:
+            verdicts[row["verdict"]] = verdicts.get(row["verdict"], 0) + 1
+            for caveat in row["caveats"]:
+                if "BLOCKED" in caveat:
+                    blocked.append({"target": row["target"], "caveat": caveat})
+
+        rights = sorted({r for r in
+                         [(e or {}).get("rights_policy_id")
+                          for key in ("editions", "etexts", "translations")
+                          for e in (dossier.get(key) or [])] if r})
+        witnesses = dossier.get("witnesses") or []
+
+        return {
+            "format": "svatantrya.status/1",
+            "status": "OK",
+            "work_id": work_id,
+            "identity": {
+                "preferred_title": record.get("preferred_title"),
+                "work_type": record.get("work_type"),
+                "entity": _plain(dossier.get("entity")),
+                "completeness": _plain(dossier.get("completeness")),
+            },
+            "rights": {
+                "policies": rights,
+                "state": "SET" if rights else "NULL",
+                "note": ("null rights = not publishable" if not rights
+                         else "rights recorded per edition/etext/translation"),
+            },
+            "witnesses": {
+                "count": len(witnesses),
+                "state": "UNPINNED" if not witnesses else "RECORDED",
+                "note": ("no manuscript witness; editions are candidate "
+                         "strings until a witness is verified"
+                         if not witnesses else ""),
+            },
+            "counts": {
+                "editions": len(dossier.get("editions") or []),
+                "etexts": len(dossier.get("etexts") or []),
+                "translations": len(dossier.get("translations") or []),
+                "passages": len(locators),
+            },
+            "passages": {"locators": locators},
+            "formal": {
+                "covered": len(covered),
+                "total": len(locators),
+                "coverage": (f"{len(covered)}/{len(locators)}"
+                             if locators else "unknown"),
+                "gaps": gaps,
+                "note": "coverage counts passages with an EVIDENCE registry "
+                        "reference; registry refs are not entailments",
+            },
+            "traces": {
+                "count": len(traces),
+                "verdicts": verdicts,
+                "with_blocked_gate": len(blocked),
+                "blocked_gates": blocked,
+                "note": ("COMPLETE means every applicable hop resolved; it "
+                         "does not mean a gate passed. blocked_gates lists "
+                         "the gates that did not."),
+                "rows": traces,
+            },
+            "layers": _layer_state(work_id),
+            "review_state": "UNREVIEWED",
+            "review_note": "no human sign-off is bound to this work; "
+                           "UNREVIEWED is a state, not a verdict",
+            "provenance": {
+                "bibliography_response_sha256":
+                    page["response_sha256"],
+                "sources": [
+                    "openpatala dossier (DB)",
+                    "/root/trika-x/formal-trika/EVIDENCE.json",
+                    "/root/trika-x/formal-trika/data/traces/index.json",
+                    "/root/svread/data/layers-index.json",
+                ],
+            },
         }
 
     @server.tool()
